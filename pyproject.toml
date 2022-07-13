@@ -1,0 +1,29 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0"]
+
+[project]
+authors = [
+  { name="Jon Ribbens", email="jribbens@unceasing.dev" },
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "requests>=2"
+]
+description = "A command-line interface to the Dexter API"
+license = { file="LICENSE" }
+name = "dexterCLI"
+readme = "README.md"
+requires-python = ">=3.7"
+version = "0.0.1"
+
+[project.scripts]
+dexter = "dexterCLI:__main__"
+
+[project.urls]
+"Bug Tracker" = "https://github.com/unceasing.dev/dexterCLI/issues"
+"Homepage" = "https://github.com/unceasing.dev/dexterCLI#README"
