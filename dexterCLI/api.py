@@ -1,5 +1,6 @@
 """dexterCLI API utilities"""
 
+import datetime
 import json
 from urllib.parse import urlencode, urljoin
 
@@ -24,3 +25,14 @@ def api(profile, path, base='.', method=None, params=None, data=None):
         timeout=30
     )
     return response
+
+
+def parse_date(s):
+    """
+    Given a dexter date (ISO 8501 UTC), return a datetime object (UTC).
+    """
+    try:
+        time = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%fZ")
+    except ValueError:
+        time = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ")
+    return time

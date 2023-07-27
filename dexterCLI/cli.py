@@ -3,6 +3,7 @@
 import argparse
 import configparser
 import os.path
+import shutil
 import sys
 
 from . import VERSION, commands
@@ -30,6 +31,14 @@ def main(argv=None):
         help='The configuration file to load (default: ~/.dexter.conf)')
     parser.add_argument(
         '--root', help='The root URL of the API interface')
+    parser.add_argument(
+        '--json', action='store_true',
+        help='Output data in JSON format (the default for some commands)')
+    parser.add_argument(
+        '--verbose', '-v', action='store_true',
+        help='Output data verbose format')
+    parser.add_argument(
+        '--width', '-w', type=int, help='Set the terminal width')
     parser.add_argument(
         '--version', '-V', action='version',
         help='Display the version number and exit',
@@ -62,10 +71,19 @@ def main(argv=None):
         profile['api-key'] = args.api_key
     if args.debug:
         profile['debug'] = True
+    if args.json:
+        profile['json'] = True
     if args.quiet:
         profile['quiet'] = True
     if args.root:
         profile['root'] = args.root
+    if args.verbose:
+        profile['verbose'] = args.verbose
+    if args.width:
+        profile['width'] = args.width
+    elif not profile.get('width'):
+        profile['width'] = (
+            shutil.get_terminal_size((80, 24)).columns or 80) - 1
     profile['output'] = args.output
     if not profile.get('api-key'):
         parser.error('api-key not specified')

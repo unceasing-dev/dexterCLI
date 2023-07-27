@@ -1,11 +1,13 @@
 """dexterCLI commands"""
 
 import argparse
+import datetime
 import json
+import re
 
 import requests
 
-from .api import api
+from .api import api, parse_date
 
 
 class Base:
@@ -24,7 +26,7 @@ class Base:
         raise NotImplementedError
 
     @classmethod
-    def display_response(cls, profile, response):
+    def display_response(cls, profile, response, table=None):
         """Display the output from an API call"""
         if profile.get('debug') or not profile.get('quiet'):
             if response.status_code != 200 or profile.get('debug'):
@@ -33,12 +35,106 @@ class Base:
             if response.headers.get('location'):
                 profile['output'].write(
                     f'Location: {response.headers["location"]}')
-            if response.content:
+            if ((profile.get('verbose') or not table)
+                    and not profile.get('json')):
+                data = response.json()
+                if len(data) == 1 and 'reports' in data:
+                    data = data['reports']
+                if not data:
+                    profile['output'].write('No results\n')
+                else:
+                    cls.display_verbose(profile, data)
+                    profile['output'].write('\n')
+            elif table and not profile.get('json'):
+                cls.display_table(profile, table)
+            elif response.content:
                 json.dump(response.json(), profile['output'], indent=2)
                 profile['output'].write('\n')
         if 200 <= response.status_code < 300:
             return 0  # EX_OK
         return 74  # EX_IOERR
+
+    @classmethod
+    def display_verbose(cls, profile, data, indent=''):
+        if data is None:
+            profile['output'].write('null')
+        elif isinstance(data, str):
+            profile['output'].write(
+                data if data.isprintable() else repr(data))
+        elif isinstance(data, bool):
+            profile['output'].write('true' if data else 'false')
+        elif isinstance(data, (int, float)):
+            profile['output'].write(f'{data:,}')
+        elif isinstance(data, list):
+            if data:
+                profile['output'].write('\n')
+                for row, value in enumerate(data):
+                    profile['output'].write(indent)
+                    cls.display_verbose(profile, value, indent + '    ')
+                    if row < len(data) - 1:
+                        profile['output'].write('\n')
+        elif isinstance(data, dict):
+            if data:
+                profile['output'].write('\n')
+                for row, (key, value) in enumerate(data.items()):
+                    profile['output'].write(indent + f'{key}: ')
+                    cls.display_verbose(profile, value, indent + '    ')
+                    if row < len(data) - 1:
+                        profile['output'].write('\n')
+        else:
+            raise ValueError(f'Cannot handle value of type {type(data)}')
+
+    @classmethod
+    def display_table(cls, profile, table):
+        header = list(table.pop(0))
+        if not table:
+            profile['output'].write('No results\n')
+            return
+        align = ['<'] * len(header)
+        min_widths = [None] * len(header)
+        padding = '-|-'
+        for col, field in enumerate(header):
+            match = re.match(r'(\d*)([<>^])(.*)$', field)
+            if match:
+                if match.group(1):
+                    min_widths[col] = int(match.group(1))
+                align[col] = match.group(2)
+                header[col] = match.group(3)
+        widths = [len(head) for head in header]
+        for rownum, row in enumerate(table):
+            if not isinstance(row, list):
+                table[rownum] = row = list(row)
+            for col, column in enumerate(row):
+                row[col] = column = str(column)
+                if len(column) > widths[col]:
+                    widths[col] = len(column)
+        while True:
+            total_width = sum(widths) + len(padding) * len(widths) - 1
+            if total_width <= profile['width']:
+                break
+            if len(padding) > 1:
+                padding = '|'
+                continue
+            for col in range(len(widths) - 1, -1, -1):
+                if (min_widths[col] and widths[col] > min_widths[col]):
+                    widths[col] = max(
+                        widths[col] - (total_width - profile['width']),
+                        min_widths[col]
+                    )
+                    break
+            else:
+                break
+        for row, data in enumerate([header] + table):
+            profile['output'].write(
+                (' ' * len(padding)).join(
+                    f'{column[:widths[col]]:{align[col]}{widths[col]}}'
+                    for col, column in enumerate(data)
+                ) + '\n'
+            )
+            if row == 0:
+                profile['output'].write(
+                    padding.join('-' * width for width in widths) + '\n'
+                )
 
 
 class List(Base):
@@ -51,20 +147,55 @@ class List(Base):
             '--user', help='Display reports requested by this user')
         parser.add_argument(
             'status',
-            choices=('queued', 'running', 'callback', 'complete', 'all'),
-            nargs='*', default='all',
+            choices=('incomplete', 'queued', 'running', 'callback',
+                     'complete', 'all'),
+            nargs='*', default='incomplete',
             help='Display reports that are in this status')
 
     @classmethod
     def process(cls, profile, args):
-        params = [
-            ('status', status)
-            for status in (args.status if args.status != 'all' else ())
-        ]
+        statuses = set([args.status] if isinstance(args.status, str)
+                       else args.status)
+        if 'all' in statuses:
+            statuses.clear()
+        elif 'incomplete' in statuses:
+            statuses |= {'queued', 'running', 'callback'}
+            statuses.remove('incomplete')
+        params = [('status', status) for status in statuses]
         if args.user is not None:
             params.append(('user', args.user))
-        return cls.display_response(
-            profile, api(profile, 'reports', params=params))
+        response = api(profile, 'reports', params=params)
+        reports = list(response.json().get('reports', {}).values())
+        reports.sort(
+            key=lambda report: (-report['priority'], report['queued']))
+        output = [['20<URL', '1>Pri', '4^Status', '>Pages', '2>Age']]
+        for report in reports:
+            pages = f'{report["pages"]:,}'
+            if report['status'] == 'queued':
+                pages = f'{report["requestedPages"]:,}'
+            elif report['status'] == 'running':
+                pages = f'{report["pages"]:,}/{report["requestedPages"]:,}'
+            output.append((
+                report['url'],
+                report['priority'],
+                report['status'],
+                pages,
+                cls.age(parse_date(report['queued'])),
+            ))
+        return cls.display_response(profile, response, output)
+
+
+    @staticmethod
+    def age(time):
+        """Return the age of the datetime"""
+        age = int((datetime.datetime.utcnow() - time).total_seconds())
+        if age < 60:
+            return '{}s'.format(age)
+        if age < 60 * 60:
+            return '{}m'.format(age // 60)
+        if age < 48 * 60 * 60:
+            return '{}h'.format(age // 3600)
+        return '{}d'.format(age // 86400)
 
 
 class Queue(Base):
