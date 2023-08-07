@@ -152,6 +152,20 @@ class List(Base):
             nargs='*', default='incomplete',
             help='Display reports that are in this status')
 
+    @staticmethod
+    def sort_key(report):
+        return (
+            {
+                'queued': 1,
+                'running': 3,
+                'callback': 2,
+                'complete': 0,
+            }.get(report['status'], 1),
+            report['priority'],
+            report['queued'],
+        )
+
+
     @classmethod
     def process(cls, profile, args):
         statuses = set([args.status] if isinstance(args.status, str)
@@ -166,8 +180,7 @@ class List(Base):
             params.append(('user', args.user))
         response = api(profile, 'reports', params=params)
         reports = list(response.json().get('reports', {}).values())
-        reports.sort(
-            key=lambda report: (-report['priority'], report['queued']))
+        reports.sort(key=cls.sort_key, reverse=True)
         output = [['20<URL', '1>Pri', '4^Status', '>Pages', '2>Age']]
         for report in reports:
             pages = f'{report["pages"]:,}'
