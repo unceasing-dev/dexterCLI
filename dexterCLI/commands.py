@@ -158,12 +158,12 @@ class List(Base):
     def sort_key(report):
         return (
             {
-                'queued': 1,
-                'running': 3,
-                'callback': 2,
-                'complete': 0,
+                'queued': 2,
+                'running': 0,
+                'callback': 1,
+                'complete': 3,
             }.get(report['status'], 1),
-            report['priority'],
+            -report['priority'],
             report['queued'],
         )
 
@@ -182,7 +182,7 @@ class List(Base):
             params.append(('user', args.user))
         response = api(profile, 'reports', params=params)
         reports = list(response.json().get('reports', {}).values())
-        reports.sort(key=cls.sort_key, reverse=True)
+        reports.sort(key=cls.sort_key)
         output = [['20<URL', '1>Pri', '4^Status', '>Pages', '2>Age']]
         for report in reports:
             pages = f'{report["pages"]:,}'
