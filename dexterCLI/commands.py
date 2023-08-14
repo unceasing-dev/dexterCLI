@@ -67,7 +67,8 @@ class Base:
             profile['output'].write(f'{data:,}')
         elif isinstance(data, list):
             if data:
-                profile['output'].write('\n')
+                if indent:
+                    profile['output'].write('\n')
                 for row, value in enumerate(data):
                     profile['output'].write(indent)
                     cls.display_verbose(profile, value, indent + '    ')
@@ -75,7 +76,8 @@ class Base:
                         profile['output'].write('\n')
         elif isinstance(data, dict):
             if data:
-                profile['output'].write('\n')
+                if indent:
+                    profile['output'].write('\n')
                 for row, (key, value) in enumerate(data.items()):
                     profile['output'].write(indent + f'{key}: ')
                     cls.display_verbose(profile, value, indent + '    ')
