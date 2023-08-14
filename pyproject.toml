@@ -26,5 +26,5 @@ version = "0.0.1"
 dexter = "dexterCLI:__main__"
 
 [project.urls]
-"Bug Tracker" = "https://github.com/unceasing.dev/dexterCLI/issues"
-"Homepage" = "https://github.com/unceasing.dev/dexterCLI#README"
+"Bug Tracker" = "https://github.com/unceasing-dev/dexterCLI/issues"
+"Homepage" = "https://github.com/unceasing-dev/dexterCLI#README"
