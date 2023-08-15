@@ -35,7 +35,7 @@ class Base:
             if response.headers.get('location'):
                 profile['output'].write(
                     f'Location: {response.headers["location"]}')
-            if ((profile.get('verbose') or not table)
+            if (response.content and (profile.get('verbose') or not table)
                     and not profile.get('json')):
                 data = response.json()
                 if len(data) == 1 and 'reports' in data:
