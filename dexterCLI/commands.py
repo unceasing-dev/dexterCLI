@@ -183,7 +183,7 @@ class List(Base):
         response = api(profile, 'reports', params=params)
         reports = list(response.json().get('reports', {}).values())
         reports.sort(key=cls.sort_key)
-        output = [['20<URL', '1>Pri', '4^Status', '>Pages', '2>Age']]
+        output = [['20<URL', '>Pri', '4^Status', '>Pages', '>Age']]
         for report in reports:
             pages = f'{report["pages"]:,}'
             if report['status'] == 'queued':
