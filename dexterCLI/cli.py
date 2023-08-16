@@ -2,8 +2,10 @@
 
 import argparse
 import configparser
-import os.path
+import io
+import os
 import shutil
+import subprocess
 import sys
 
 from . import VERSION, commands
@@ -21,6 +23,9 @@ def main(argv=None):
     parser.add_argument(
         '--output', '-o', metavar='FILENAME', type=argparse.FileType('w'),
         default=sys.stdout, help='The file to write the output to')
+    parser.add_argument(
+        '--no-pager', '-P', action='store_true',
+        help='Do not use a pager to display the output')
     parser.add_argument(
         '--profile', '-p', default='default',
         help='The configuration profile to use (default: default)')
@@ -67,6 +72,7 @@ def main(argv=None):
     config = configparser.ConfigParser()
     config.read(os.path.expanduser(args.rcfile))
     profile = dict(config.items(args.profile))
+    terminal = shutil.get_terminal_size((80, 24))
     if args.api_key:
         profile['api-key'] = args.api_key
     if args.debug:
@@ -82,11 +88,34 @@ def main(argv=None):
     if args.width:
         profile['width'] = args.width
     elif not profile.get('width'):
-        profile['width'] = (
-            shutil.get_terminal_size((80, 24)).columns or 80) - 1
-    profile['output'] = args.output
+        profile['width'] = (terminal.columns or 80) - 1
     if not profile.get('api-key'):
         parser.error('api-key not specified')
     if not profile.get('root'):
         parser.error('root not specified')
-    sys.exit(handlers[args.command](profile, args))
+    buffer = None
+    if args.output.isatty() and not args.no_pager:
+        profile['output'] = buffer = io.StringIO()
+    else:
+        profile['output'] = args.output
+    exit_code = handlers[args.command](profile, args)
+    if buffer:
+        output = buffer.getvalue()
+        pager = os.environ.get('PAGER') or '/bin/more'
+        if not os.access(pager, os.X_OK):
+            pager = None
+        lines = sum(
+            1 + len(line) // profile['width']
+            for line in output.split('\n')
+        )
+        if pager and lines > (terminal.lines or 24):
+            subprocess.run(
+                pager,
+                input=output,
+                stdout=args.output,
+                text=True,
+            )
+        else:
+            while output:
+                output = output[args.output.write(output):]
+    sys.exit(exit_code)
