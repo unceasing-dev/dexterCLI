@@ -105,7 +105,7 @@ def main(argv=None):
         if not os.access(pager, os.X_OK):
             pager = None
         lines = sum(
-            len(line) // profile['width']
+            1 + len(line) // profile['width']
             for line in output.split('\n')
         )
         if pager and lines > (terminal.lines or 24):
