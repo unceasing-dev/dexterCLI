@@ -1,4 +1,3 @@
-"""dexterCLI package"""
-# pylint: disable=invalid-name
+"""dexterCLI package."""
 
 VERSION = '0.0.3'

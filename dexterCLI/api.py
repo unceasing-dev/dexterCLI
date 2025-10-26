@@ -1,4 +1,4 @@
-"""dexterCLI API utilities"""
+"""dexterCLI API utilities."""
 
 import datetime
 import json
@@ -8,15 +8,14 @@ import requests
 
 
 def api(profile, path, base='.', method=None, params=None, data=None):
-    """Call the API and output the results to stdout"""
-    # pylint: disable=too-many-arguments
+    """Call the API and output the results to stdout when in debug mode."""
     method = ('GET' if data is None else 'POST') if method is None else method
     url = urljoin(urljoin(profile['root'].rstrip('/') + '/', base), path)
     if profile.get('debug'):
         print(f'{method} {url}{"?" + urlencode(params) if params else ""}')
         if data:
             print(json.dumps(data, indent=2))
-    response = requests.request(
+    return requests.request(
         method,
         url,
         auth=('dexter', profile['api-key']),
@@ -24,15 +23,12 @@ def api(profile, path, base='.', method=None, params=None, data=None):
         params=params,
         timeout=30
     )
-    return response
 
 
 def parse_date(s):
-    """
-    Given a dexter date (ISO 8501 UTC), return a datetime object (UTC).
-    """
+    """Given a dexter date (ISO 8501 UTC), return a datetime object."""
     try:
-        time = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%fZ")
+        time = datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
     except ValueError:
-        time = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ")
+        time = datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z')
     return time

@@ -1,18 +1,19 @@
-"""dexterCLI command-line parser"""
+"""dexterCLI command-line parser."""
 
 import argparse
 import configparser
 import io
 import os
+from pathlib import Path
 import shutil
-import subprocess
+import subprocess  # noqa: S404
 import sys
 
 from . import VERSION, commands
 
 
 def main(argv=None):
-    """Main entry point for command-line parser"""
+    """Main entry point for command-line parser."""  # noqa: D401
     parser = argparse.ArgumentParser(
         description='Dexter API command-line interface',
         prog='dexter')
@@ -67,14 +68,13 @@ def main(argv=None):
                 description=command.description,
             ))
             handlers[name] = command.process
-            handlers.update({
-                alias: command.process
-                for alias in command.aliases or ()
-            })
+            handlers.update(
+                dict.fromkeys(command.aliases or (), command.process)
+            )
 
     args = parser.parse_args(argv)
     config = configparser.ConfigParser()
-    config.read(os.path.expanduser(args.rcfile))
+    config.read(Path(args.rcfile).expanduser())
     profile = dict(config.items(args.profile))
     terminal = shutil.get_terminal_size((80, 24))
     if args.api_key:
@@ -113,8 +113,9 @@ def main(argv=None):
             for line in output.split('\n')
         )
         if pager and lines > (terminal.lines or 24):
-            subprocess.run(
+            subprocess.run(  # noqa: S603
                 pager,
+                check=False,
                 input=output,
                 stdout=args.output,
                 text=True,

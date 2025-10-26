@@ -1,4 +1,4 @@
-"""dexterCLI main entry point"""
+"""dexterCLI main entry point."""
 
 from .cli import main
 

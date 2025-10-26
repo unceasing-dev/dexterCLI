@@ -1,4 +1,4 @@
-"""dexterCLI commands"""
+"""dexterCLI commands."""
 
 import argparse
 import datetime
@@ -11,7 +11,8 @@ from .api import api, parse_date
 
 
 class Base:
-    """Base class for dexterCLI commands"""
+    """Base class for dexterCLI commands."""
+
     aliases = None
     description = None
     name = None
@@ -27,7 +28,7 @@ class Base:
 
     @classmethod
     def display_response(cls, profile, response, table=None):
-        """Display the output from an API call"""
+        """Display the output from an API call."""
         if profile.get('debug') or not profile.get('quiet'):
             if response.status_code != 200 or profile.get('debug'):
                 profile['output'].write(
@@ -56,6 +57,7 @@ class Base:
 
     @classmethod
     def display_verbose(cls, profile, data, indent=''):
+        """Display some data in our 'verbose' format."""
         if data is None:
             profile['output'].write('null')
         elif isinstance(data, str):
@@ -88,6 +90,7 @@ class Base:
 
     @classmethod
     def display_table(cls, profile, table):
+        """Display some data in a table format."""
         header = list(table.pop(0))
         if not table:
             profile['output'].write('No results\n')
@@ -126,7 +129,7 @@ class Base:
                     break
             else:
                 break
-        for row, data in enumerate([header] + table):
+        for row, data in enumerate([header, *table]):
             profile['output'].write(
                 (' ' * len(padding)).join(
                     f'{column[:widths[col]]:{align[col]}{widths[col]}}'
@@ -140,11 +143,13 @@ class Base:
 
 
 class List(Base):
-    """List reports"""
+    """List reports."""
+
     description = 'List reports'
 
     @classmethod
     def add_arguments(cls, parser):
+        """Define the command-line arguments for this command."""
         parser.add_argument(
             '--user', help='Display reports requested by this user')
         parser.add_argument(
@@ -156,6 +161,7 @@ class List(Base):
 
     @staticmethod
     def sort_key(report):
+        """Return the key with which to sort the output reports."""
         return (
             {
                 'queued': 2,
@@ -167,9 +173,9 @@ class List(Base):
             report['queued'],
         )
 
-
     @classmethod
     def process(cls, profile, args):
+        """Run the 'list' command."""
         statuses = set([args.status] if isinstance(args.status, str)
                        else args.status)
         if 'all' in statuses:
@@ -199,26 +205,30 @@ class List(Base):
             ))
         return cls.display_response(profile, response, output)
 
-
     @staticmethod
     def age(time):
-        """Return the age of the datetime"""
-        age = int((datetime.datetime.utcnow() - time).total_seconds())
+        """Return the age of the datetime as a human-friendly string."""
+        age = int(
+            (datetime.datetime.now(tz=datetime.timezone.utc) - time)
+            .total_seconds()
+        )
         if age < 60:
-            return '{}s'.format(age)
+            return f'{age}s'.format(age)
         if age < 60 * 60:
-            return '{}m'.format(age // 60)
+            return f'{age // 60}m'
         if age < 48 * 60 * 60:
-            return '{}h'.format(age // 3600)
-        return '{}d'.format(age // 86400)
+            return f'{age // 3600}h'
+        return f'{age // 86400}d'
 
 
 class Queue(Base):
-    """Queue a report"""
+    """Queue a report."""
+
     description = 'Queue a report'
 
     @classmethod
     def add_arguments(cls, parser):
+        """Define the command-line arguments for this command."""
         parser.add_argument(
             '--callback', metavar='URL', help='The callback URL')
         parser.add_argument(
@@ -243,6 +253,7 @@ class Queue(Base):
 
     @classmethod
     def process(cls, profile, args):
+        """Run the 'queue' command."""
         data = {'url': args.url, 'requestedPages': args.pages}
         if args.callback:
             data['callback'] = args.callback
@@ -263,11 +274,13 @@ class Queue(Base):
 
 
 class Update(Base):
-    """Update the metadata of a report"""
+    """Update the metadata of a report."""
+
     description = 'Update the metadata of a report'
 
     @classmethod
     def add_arguments(cls, parser):
+        """Define the command-line arguments for this command."""
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument('--metadata', metavar='JSON', help='The metadata')
         group.add_argument(
@@ -278,6 +291,7 @@ class Update(Base):
 
     @classmethod
     def process(cls, profile, args):
+        """Run the 'update' command."""
         if args.metadata:
             data = {'metadata': json.loads(args.metadata)}
         else:
@@ -290,33 +304,39 @@ class Update(Base):
 
 
 class Status(Base):
-    """Display the status of a report"""
+    """Display the status of a report."""
+
     aliases = ('info',)
     description = 'Display the status of a report'
 
     @classmethod
     def add_arguments(cls, parser):
+        """Define the command-line arguments for this command."""
         parser.add_argument(
             'report', metavar='ID', help='The report ID or its status URL')
 
     @classmethod
     def process(cls, profile, args):
+        """Run the 'status' command."""
         return cls.display_response(
             profile, api(profile, args.report, base='reports/'))
 
 
 class Delete(Base):
-    """Delete a report"""
+    """Delete a report."""
+
     description = 'Delete a report'
     aliases = ('cancel',)
 
     @classmethod
     def add_arguments(cls, parser):
+        """Define the command-line arguments for this command."""
         parser.add_argument(
             'report', metavar='ID', help='The report ID or its status URL')
 
     @classmethod
     def process(cls, profile, args):
+        """Run the 'delete' command."""
         return cls.display_response(
             profile,
             api(profile, args.report, base='reports/', method='DELETE')
@@ -324,16 +344,19 @@ class Delete(Base):
 
 
 class Fetch(Base):
-    """Fetch a full report"""
+    """Fetch a full report."""
+
     description = 'Fetch a full report'
 
     @classmethod
     def add_arguments(cls, parser):
+        """Define the command-line arguments for this command."""
         parser.add_argument(
             'report', metavar='ID', help='The report ID or its status URL')
 
     @classmethod
     def process(cls, profile, args):
+        """Run the 'fetch' command."""
         response = api(profile, args.report, base='reports/')
         if response.status_code != 200:
             return cls.display_response(profile, response)
