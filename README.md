@@ -44,4 +44,3 @@ Example:
                             ~/.dexter.conf)
       --root ROOT           The root URL of the API interface
       --version, -V         Display the version number and exit
-

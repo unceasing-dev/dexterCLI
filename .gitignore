@@ -2,4 +2,5 @@
 /dexterCLI.egg-info
 /dist/
 /env
+/old-env
 __pycache__/

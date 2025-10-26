@@ -28,3 +28,22 @@ dexter = "dexterCLI:__main__"
 [project.urls]
 "Bug Tracker" = "https://github.com/unceasing-dev/dexterCLI/issues"
 "Homepage" = "https://github.com/unceasing-dev/dexterCLI#README"
+
+[project.optional-dependencies]
+dev = [
+  "pre-commit<5",
+  "ruff<0.15",
+]
+
+[tool.ruff]
+line-length = 78
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+
+[tool.ruff.format]
+quote-style = "single"
+line-ending = "lf"
