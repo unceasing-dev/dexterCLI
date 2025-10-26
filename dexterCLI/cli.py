@@ -8,11 +8,12 @@ from pathlib import Path
 import shutil
 import subprocess  # noqa: S404
 import sys
+from typing import Any
 
 from . import VERSION, commands
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> None:
     """Main entry point for command-line parser."""  # noqa: D401
     parser = argparse.ArgumentParser(
         description='Dexter API command-line interface',
@@ -75,7 +76,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     config = configparser.ConfigParser()
     config.read(Path(args.rcfile).expanduser())
-    profile = dict(config.items(args.profile))
+    profile: dict[str, Any] = dict(config.items(args.profile))
     terminal = shutil.get_terminal_size((80, 24))
     if args.api_key:
         profile['api-key'] = args.api_key
@@ -105,8 +106,8 @@ def main(argv=None):
     exit_code = handlers[args.command](profile, args)
     if buffer:
         output = buffer.getvalue()
-        pager = os.environ.get('PAGER') or '/bin/more'
-        if not os.access(pager, os.X_OK):
+        pager: str | None = os.environ.get('PAGER') or '/bin/more'
+        if pager and not os.access(pager, os.X_OK):
             pager = None
         lines = sum(
             1 + len(line) // profile['width']

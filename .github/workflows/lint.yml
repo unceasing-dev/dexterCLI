@@ -21,3 +21,5 @@ jobs:
           pip install -e .[dev]
       - name: Analyse the code with ruff
         run: ruff check --output-format=github
+      - name: Analyse the code with mypy
+        run: mypy dexterCLI

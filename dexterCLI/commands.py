@@ -4,30 +4,42 @@ import argparse
 import datetime
 import json
 import re
+from typing import TYPE_CHECKING, Any
 
 import requests
 
 from .api import api, parse_date
 
+if TYPE_CHECKING:
+    import collections
+
+Profile = dict[str, Any]
+Table = list[Any]
+
 
 class Base:
     """Base class for dexterCLI commands."""
 
-    aliases = None
-    description = None
-    name = None
+    aliases: tuple[str] | None = None
+    description: str
+    name: str | None = None
 
     @classmethod
-    def add_arguments(cls, parser):
+    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         """Add arguments, if any, to the argument parser."""
 
     @classmethod
-    def process(cls, profile, args):
+    def process(cls, profile: Profile, args: argparse.Namespace) -> int:
         """Process a command."""
         raise NotImplementedError
 
     @classmethod
-    def display_response(cls, profile, response, table=None):
+    def display_response(
+        cls,
+        profile: Profile,
+        response: requests.Response,
+        table: Table | None = None
+    ) -> int:
         """Display the output from an API call."""
         if profile.get('debug') or not profile.get('quiet'):
             if response.status_code != 200 or profile.get('debug'):
@@ -56,7 +68,12 @@ class Base:
         return 74  # EX_IOERR
 
     @classmethod
-    def display_verbose(cls, profile, data, indent=''):
+    def display_verbose(
+        cls,
+        profile: dict[str, Any],
+        data: Any,  # noqa: ANN401
+        indent: str = ''
+    ) -> None:
         """Display some data in our 'verbose' format."""
         if data is None:
             profile['output'].write('null')
@@ -89,14 +106,14 @@ class Base:
             raise ValueError(f'Cannot handle value of type {type(data)}')
 
     @classmethod
-    def display_table(cls, profile, table):
+    def display_table(cls, profile: dict[str, Any], table: Table) -> None:
         """Display some data in a table format."""
         header = list(table.pop(0))
         if not table:
             profile['output'].write('No results\n')
             return
         align = ['<'] * len(header)
-        min_widths = [None] * len(header)
+        min_widths: list[int | None] = [None] * len(header)
         padding = '-|-'
         for col, field in enumerate(header):
             match = re.match(r'(\d*)([<>^])(.*)$', field)
@@ -121,7 +138,10 @@ class Base:
                 padding = '|'
                 continue
             for col in range(len(widths) - 1, -1, -1):
-                if (min_widths[col] and widths[col] > min_widths[col]):
+                if (
+                    (min_width := min_widths[col]) and
+                    widths[col] > min_width
+                ):
                     widths[col] = max(
                         widths[col] - (total_width - profile['width']),
                         min_widths[col]
@@ -148,7 +168,7 @@ class List(Base):
     description = 'List reports'
 
     @classmethod
-    def add_arguments(cls, parser):
+    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         """Define the command-line arguments for this command."""
         parser.add_argument(
             '--user', help='Display reports requested by this user')
@@ -160,7 +180,7 @@ class List(Base):
             help='Display reports that are in this status')
 
     @staticmethod
-    def sort_key(report):
+    def sort_key(report: dict[str, Any]) -> tuple[Any, ...]:
         """Return the key with which to sort the output reports."""
         return (
             {
@@ -174,7 +194,7 @@ class List(Base):
         )
 
     @classmethod
-    def process(cls, profile, args):
+    def process(cls, profile: Profile, args: argparse.Namespace) -> int:
         """Run the 'list' command."""
         statuses = set([args.status] if isinstance(args.status, str)
                        else args.status)
@@ -189,7 +209,9 @@ class List(Base):
         response = api(profile, 'reports', params=params)
         reports = list(response.json().get('reports', {}).values())
         reports.sort(key=cls.sort_key)
-        output = [['20<URL', '>Pri', '4^Status', '>Pages', '>Age']]
+        output: list[collections.abc.Sequence[Any]] = [
+            ['20<URL', '>Pri', '4^Status', '>Pages', '>Age']
+        ]
         for report in reports:
             pages = f'{report["pages"]:,}'
             if report['status'] == 'queued':
@@ -206,7 +228,7 @@ class List(Base):
         return cls.display_response(profile, response, output)
 
     @staticmethod
-    def age(time):
+    def age(time: datetime.datetime) -> str:
         """Return the age of the datetime as a human-friendly string."""
         age = int(
             (datetime.datetime.now(tz=datetime.timezone.utc) - time)
@@ -227,7 +249,7 @@ class Queue(Base):
     description = 'Queue a report'
 
     @classmethod
-    def add_arguments(cls, parser):
+    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         """Define the command-line arguments for this command."""
         parser.add_argument(
             '--callback', metavar='URL', help='The callback URL')
@@ -252,7 +274,7 @@ class Queue(Base):
             help='The number of pages to scan (default: 1)')
 
     @classmethod
-    def process(cls, profile, args):
+    def process(cls, profile: Profile, args: argparse.Namespace) -> int:
         """Run the 'queue' command."""
         data = {'url': args.url, 'requestedPages': args.pages}
         if args.callback:
@@ -279,7 +301,7 @@ class Update(Base):
     description = 'Update the metadata of a report'
 
     @classmethod
-    def add_arguments(cls, parser):
+    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         """Define the command-line arguments for this command."""
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument('--metadata', metavar='JSON', help='The metadata')
@@ -290,7 +312,7 @@ class Update(Base):
             'report', metavar='ID', help='The report ID or its status URL')
 
     @classmethod
-    def process(cls, profile, args):
+    def process(cls, profile: Profile, args: argparse.Namespace) -> int:
         """Run the 'update' command."""
         if args.metadata:
             data = {'metadata': json.loads(args.metadata)}
@@ -310,13 +332,13 @@ class Status(Base):
     description = 'Display the status of a report'
 
     @classmethod
-    def add_arguments(cls, parser):
+    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         """Define the command-line arguments for this command."""
         parser.add_argument(
             'report', metavar='ID', help='The report ID or its status URL')
 
     @classmethod
-    def process(cls, profile, args):
+    def process(cls, profile: Profile, args: argparse.Namespace) -> int:
         """Run the 'status' command."""
         return cls.display_response(
             profile, api(profile, args.report, base='reports/'))
@@ -329,13 +351,13 @@ class Delete(Base):
     aliases = ('cancel',)
 
     @classmethod
-    def add_arguments(cls, parser):
+    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         """Define the command-line arguments for this command."""
         parser.add_argument(
             'report', metavar='ID', help='The report ID or its status URL')
 
     @classmethod
-    def process(cls, profile, args):
+    def process(cls, profile: Profile, args: argparse.Namespace) -> int:
         """Run the 'delete' command."""
         return cls.display_response(
             profile,
@@ -349,13 +371,13 @@ class Fetch(Base):
     description = 'Fetch a full report'
 
     @classmethod
-    def add_arguments(cls, parser):
+    def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         """Define the command-line arguments for this command."""
         parser.add_argument(
             'report', metavar='ID', help='The report ID or its status URL')
 
     @classmethod
-    def process(cls, profile, args):
+    def process(cls, profile: Profile, args: argparse.Namespace) -> int:
         """Run the 'fetch' command."""
         response = api(profile, args.report, base='reports/')
         if response.status_code != 200:
