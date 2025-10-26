@@ -67,6 +67,10 @@ def main(argv=None):
                 description=command.description,
             ))
             handlers[name] = command.process
+            handlers.update({
+                alias: command.process
+                for alias in command.aliases or ()
+            })
 
     args = parser.parse_args(argv)
     config = configparser.ConfigParser()
